@@ -50,8 +50,8 @@ TEST(TestNCCL, InitAndAllReduce) {
     cudaMalloc(&d_data, 10 * sizeof(float));
     cudaMemcpy(d_data, data.data(), 10 * sizeof(float), cudaMemcpyHostToDevice);
 
-    handler->Broadcast(d_data, 10, rank);
-    handler->AllReduce(d_data, d_data, 10);
+    handler->Broadcast(d_data, d_data, 10, base::DataType::kDataTypeFp32, rank);
+    handler->AllReduce(d_data, d_data, 10, base::DataType::kDataTypeFp32);
 
     std::vector<float> data_out(10);
     cudaMemcpy(data_out.data(), d_data, 10 * sizeof(float), cudaMemcpyDeviceToHost);
