@@ -60,6 +60,20 @@ mpirun -n 2 ./test_llm --gtest_filter=TestNCCL.*
 ./demo/llama_inference --model_path /path/to/weights --tokenizer_path /path/to/tokenizer
 ```
 
+## Technical Reports
+
+Detailed documentation of implementation decisions and verification:
+
+| Report | Description |
+|--------|-------------|
+| [01_distributed_inference.md](reports/01_distributed_inference.md) | Tensor Parallelism architecture and NCCL integration |
+| [02_memory_optimization.md](reports/02_memory_optimization.md) | KV Cache pre-allocation design |
+| [03_performance_tuning.md](reports/03_performance_tuning.md) | Computation-communication overlap and INT8 quantization |
+| [04_test_verification.md](reports/04_test_verification.md) | Build and test results on RTX 3090 |
+| [05_nccl_timeout_handling.md](reports/05_nccl_timeout_handling.md) | NCCL timeout problem and solution |
+| [06_int8_memory_analysis.md](reports/06_int8_memory_analysis.md) | INT8 quantization memory reduction analysis |
+| [07_benchmark_report.md](reports/07_benchmark_report.md) | Kernel benchmark results and constraint workarounds |
+
 ## Future Work
 - **FlashAttention Integration**: Integrate FlashAttention-2 kernels to further optimize the Attention phase.
 - **Continuous Batching**: Implement continuous batching scheduler for higher throughput in serving scenarios.
