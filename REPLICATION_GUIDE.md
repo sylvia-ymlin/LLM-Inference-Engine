@@ -1,4 +1,4 @@
-# Replication Guide: Building the High-Performance Inference Engine
+# Replication Guide: Building the LLM Inference Engine
 
 This guide authenticates your journey. It breaks down exactly how the advanced features were added to the base `KuiperLLama` framework. Use this to study, replicate, or explain the project to interviewers.
 

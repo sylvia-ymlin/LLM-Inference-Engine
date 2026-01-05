@@ -1,7 +1,7 @@
-# High-Performance LLM Inference Engine
+# LLM Inference Engine
 
-A highly optimized, distributed Llama3/Qwen2 inference engine implemented in C++ and CUDA. 
-This project demonstrates advanced techniques in **Distributed Computing (Tensor Parallelism)**, **Memory Management (Paged KV Cache)**, and **Low-Precision Arithmetic (INT8 Quantization)** to achieve state-of-the-art performance.
+A distributed Llama3/Qwen2 inference engine implemented in C++ and CUDA. 
+This project demonstrates advanced techniques in **Distributed Computing (Tensor Parallelism)**, **Memory Management (KV Cache Pre-allocation)**, and **Low-Precision Arithmetic (INT8 Quantization)**.
 
 ## Key Features
 
