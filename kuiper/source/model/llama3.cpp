@@ -466,9 +466,6 @@ void LLama2Model::init_mem() {
   CHECK(insert_buffer(ModelBufferType::kW1Output, w1_output));
   CHECK(insert_buffer(ModelBufferType::kW3Output, w3_output));
 
-  CHECK(insert_buffer(ModelBufferType::kW1Output, w1_output));
-  CHECK(insert_buffer(ModelBufferType::kW3Output, w3_output));
-
   // kv cache
   // Use KVCacheManager
   base::KVCacheConfig kv_config;
@@ -486,9 +483,9 @@ void LLama2Model::init_mem() {
   void* v_ptr_raw = kv_cache_manager_->get_raw_buffer_v();
 
   tensor::Tensor key_cache(base::DataType::kDataTypeFp32, config_->layer_num_, config_->seq_len_,
-                           config_->kv_dim_, true, nullptr, k_ptr_raw);  // use external ptr
+                           config_->kv_dim_, true, alloc, k_ptr_raw);  // use external ptr
   tensor::Tensor value_cache(base::DataType::kDataTypeFp32, config_->layer_num_, config_->seq_len_,
-                             config_->kv_dim_, true, nullptr, v_ptr_raw);  // use external ptr
+                             config_->kv_dim_, true, alloc, v_ptr_raw);  // use external ptr
 
   if (device_type_ == base::DeviceType::kDeviceCUDA) {
     key_cache.set_device_type(base::DeviceType::kDeviceCUDA);
