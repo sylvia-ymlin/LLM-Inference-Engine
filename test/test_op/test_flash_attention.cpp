@@ -49,11 +49,17 @@ TEST_F(TestFlashAttention, FlashAttentionForwardCPU) {
   auto flash_attn = std::make_shared<op::FlashAttention>(
       base::DeviceType::kDeviceCPU, 0, kv_mul, kv_dim, seq_len, head_num, head_size);
 
-  // Create input tensors
+  // Create input tensors with proper initialization
   tensor::Tensor query(base::DataType::kDataTypeFp32, batch_size, seq_len, head_num, head_size, true, allocator);
   tensor::Tensor key(base::DataType::kDataTypeFp32, batch_size, seq_len, head_num, head_size, true, allocator);
   tensor::Tensor value(base::DataType::kDataTypeFp32, batch_size, seq_len, head_num, head_size, true, allocator);
   tensor::Tensor output(base::DataType::kDataTypeFp32, batch_size, seq_len, head_num, head_size, true, allocator);
+
+  // Ensure tensors are properly allocated
+  ASSERT_FALSE(query.is_empty());
+  ASSERT_FALSE(key.is_empty());
+  ASSERT_FALSE(value.is_empty());
+  ASSERT_FALSE(output.is_empty());
 
   // Initialize with simple test data
   float* q_ptr = query.ptr<float>();
@@ -74,7 +80,7 @@ TEST_F(TestFlashAttention, FlashAttentionForwardCPU) {
 
   flash_attn->set_pos(seq_len - 1);
 
-  // Forward pass
+  // Forward pass - this will fallback to standard MHA on CPU
   auto status = flash_attn->forward();
   EXPECT_TRUE(status);
 
