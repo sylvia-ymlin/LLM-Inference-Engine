@@ -88,34 +88,65 @@ fi
 # 3. 构建验证
 echo -e "\n${BLUE}=== 3. 构建验证 ===${NC}"
 
+# 首先找到实际的构建输出位置
+log_info "查找构建输出文件..."
+echo "当前目录结构:"
+ls -la
+echo ""
+echo "查找libllama.so:"
+find . -name "libllama.so" -type f 2>/dev/null | head -5
+echo ""
+echo "查找test_llm:"
+find . -name "test_llm" -type f 2>/dev/null | head -5
+echo ""
+echo "查找llama_infer:"
+find . -name "llama_infer" -type f 2>/dev/null | head -5
+echo ""
+
 log_info "检查库文件..."
 if [ -f "lib/libllama.so" ]; then
     log_success "libllama.so 构建成功"
     
     # 检查FlashAttention符号
-    if nm lib/libllama.so | grep -q "flash_attention"; then
+    if nm lib/libllama.so | grep -q "flash_attention" 2>/dev/null; then
         log_success "FlashAttention符号存在于库中"
     else
-        log_warning "未在库中找到FlashAttention符号"
+        log_warning "未在库中找到FlashAttention符号（这是正常的，符号可能被优化）"
+    fi
+elif [ -f "../lib/libllama.so" ]; then
+    log_success "libllama.so 构建成功 (在上级目录)"
+    
+    # 检查FlashAttention符号
+    if nm ../lib/libllama.so | grep -q "flash_attention" 2>/dev/null; then
+        log_success "FlashAttention符号存在于库中"
+    else
+        log_warning "未在库中找到FlashAttention符号（这是正常的，符号可能被优化）"
     fi
 else
-    log_error "libllama.so 未找到"
+    log_error "libllama.so 未找到，检查可能的位置..."
+    find . -name "libllama.so" -type f 2>/dev/null | head -5
     exit 1
 fi
 
 log_info "检查测试可执行文件..."
 if [ -f "test/test_llm" ]; then
     log_success "test_llm 构建成功"
+elif [ -f "../test/test_llm" ]; then
+    log_success "test_llm 构建成功 (在上级目录)"
 else
-    log_error "test_llm 未找到"
+    log_error "test_llm 未找到，检查可能的位置..."
+    find . -name "test_llm" -type f 2>/dev/null | head -5
     exit 1
 fi
 
 log_info "检查演示程序..."
 if [ -f "demo/llama_infer" ]; then
     log_success "llama_infer 构建成功"
+elif [ -f "../demo/llama_infer" ]; then
+    log_success "llama_infer 构建成功 (在上级目录)"
 else
-    log_error "llama_infer 未找到"
+    log_error "llama_infer 未找到，检查可能的位置..."
+    find . -name "llama_infer" -type f 2>/dev/null | head -5
     exit 1
 fi
 
@@ -123,7 +154,17 @@ fi
 echo -e "\n${BLUE}=== 4. 单元测试 ===${NC}"
 
 log_info "运行FlashAttention单元测试..."
-if ./test/test_llm --gtest_filter=TestFlashAttention.* > flash_test.log 2>&1; then
+TEST_CMD=""
+if [ -f "test/test_llm" ]; then
+    TEST_CMD="./test/test_llm"
+elif [ -f "../test/test_llm" ]; then
+    TEST_CMD="../test/test_llm"
+else
+    log_error "找不到test_llm可执行文件"
+    exit 1
+fi
+
+if $TEST_CMD --gtest_filter=TestFlashAttention.* > flash_test.log 2>&1; then
     log_success "FlashAttention单元测试通过"
     
     # 显示测试结果摘要
@@ -137,7 +178,7 @@ else
 fi
 
 log_info "运行CUDA内核测试..."
-if ./test/test_llm --gtest_filter=*cu* > cuda_test.log 2>&1; then
+if $TEST_CMD --gtest_filter=*cu* > cuda_test.log 2>&1; then
     CUDA_PASSED=$(grep -c "PASSED" cuda_test.log || echo "0")
     log_success "CUDA内核测试: $CUDA_PASSED 个测试通过"
 else
@@ -179,7 +220,17 @@ fi
 echo -e "\n${BLUE}=== 6. 端到端推理测试 ===${NC}"
 
 log_info "运行推理测试..."
-if timeout 60 ./demo/llama_infer "$MODEL_PATH" "$TOKENIZER_PATH" > inference_test.log 2>&1; then
+INFER_CMD=""
+if [ -f "demo/llama_infer" ]; then
+    INFER_CMD="./demo/llama_infer"
+elif [ -f "../demo/llama_infer" ]; then
+    INFER_CMD="../demo/llama_infer"
+else
+    log_error "找不到llama_infer可执行文件"
+    exit 1
+fi
+
+if timeout 60 $INFER_CMD "$MODEL_PATH" "$TOKENIZER_PATH" > inference_test.log 2>&1; then
     log_success "推理测试完成"
     
     # 检查FlashAttention使用情况
@@ -219,7 +270,17 @@ log_info "测试前GPU内存使用: ${MEMORY_BEFORE} MB"
 
 # 运行性能测试
 START_TIME=$(date +%s)
-if timeout 120 ./demo/llama_infer "$MODEL_PATH" "$TOKENIZER_PATH" > performance_test.log 2>&1; then
+PERF_CMD=""
+if [ -f "demo/llama_infer" ]; then
+    PERF_CMD="./demo/llama_infer"
+elif [ -f "../demo/llama_infer" ]; then
+    PERF_CMD="../demo/llama_infer"
+else
+    log_error "找不到llama_infer可执行文件"
+    exit 1
+fi
+
+if timeout 120 $PERF_CMD "$MODEL_PATH" "$TOKENIZER_PATH" > performance_test.log 2>&1; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
     
