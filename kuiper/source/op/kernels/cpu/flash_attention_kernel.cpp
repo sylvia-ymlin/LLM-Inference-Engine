@@ -1,5 +1,6 @@
 #include "flash_attention_kernel.h"
 #include "../kernels_interface.h"
+#include "../cuda/flash_attention_kernel.cuh"
 #include <cuda_runtime_api.h>
 
 namespace kernel {
@@ -14,13 +15,11 @@ void flash_attention_kernel(const tensor::Tensor& query, const tensor::Tensor& k
 #ifdef KUIPER_USE_FLASH_ATTENTION
     // Call CUDA FlashAttention kernel
     LOG(INFO) << "Using FlashAttention CUDA kernel";
-    // For now, fallback to standard MHA until CUDA kernel is properly linked
-    get_mha_kernel(device_type)(pos, head_num, 0, seq_len, head_num * head_size, 1, head_size,
-                               output, query, tensor::Tensor(), key, value, device_type, config);
+    flash_attention_kernel_cu(query, key, value, output, head_num, head_size, 
+                             seq_len, pos, softmax_scale, is_causal, config);
 #else
-    LOG(ERROR) << "FlashAttention CUDA support not compiled. Please build with -DUSE_FLASH_ATTENTION=ON";
+    LOG(WARNING) << "FlashAttention CUDA support not compiled. Falling back to standard MHA";
     // Fallback to standard attention
-    LOG(INFO) << "Falling back to standard attention implementation";
     get_mha_kernel(device_type)(pos, head_num, 0, seq_len, head_num * head_size, 1, head_size,
                                output, query, tensor::Tensor(), key, value, device_type, config);
 #endif
