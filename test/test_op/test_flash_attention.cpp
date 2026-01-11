@@ -6,11 +6,15 @@
 class TestFlashAttention : public ::testing::Test {
  protected:
   void SetUp() override {
-    google::InitGoogleLogging("TestFlashAttention");
+    // Google Logging may already be initialized by main test runner
+    // Only initialize if not already done
+    if (!google::IsGoogleLoggingInitialized()) {
+      google::InitGoogleLogging("TestFlashAttention");
+    }
   }
 
   void TearDown() override {
-    google::ShutdownGoogleLogging();
+    // Don't shutdown logging as it may be used by other tests
   }
 };
 
