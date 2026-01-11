@@ -3,6 +3,17 @@
 A distributed Llama3/Qwen2 inference engine implemented in C++ and CUDA. 
 This project demonstrates advanced techniques in **Distributed Computing (Tensor Parallelism)**, **Memory Management (KV Cache Pre-allocation)**, and **Low-Precision Arithmetic (INT8 Quantization)**.
 
+## Acknowledgments
+
+This project is based on the excellent work of [KuiperLLama](https://github.com/zjhellofss/KuiperLLama) by [@zjhellofss](https://github.com/zjhellofss). KuiperLLama provides a solid foundation for LLM inference frameworks with support for Llama2/3 and Qwen2.5 models.
+
+**Key enhancements in this project:**
+- **FlashAttention Integration**: Added memory-efficient attention mechanism (original KuiperLLama uses standard MHA)
+- **Distributed Inference**: Enhanced tensor parallelism with NCCL for multi-GPU deployment
+- **Advanced Memory Management**: Improved KV cache pre-allocation and zero-allocation inference
+- **Comprehensive Testing**: Added rigorous performance testing and validation frameworks
+- **Production Optimizations**: INT8 quantization, CUDA kernel optimizations, and deployment tools
+
 ## Key Features
 
 ### 1. Distributed Inference (Tensor Parallelism)
@@ -102,3 +113,14 @@ Detailed documentation of implementation decisions and verification:
 - **Advanced FlashAttention**: Integrate FP16 support and variable sequence length handling
 - **Continuous Batching**: Implement continuous batching scheduler for higher throughput in serving scenarios
 - **Multi-Query Attention**: Optimize kernels for MQA and GQA patterns with FlashAttention
+
+## References and Related Work
+
+- **KuiperLLama**: [https://github.com/zjhellofss/KuiperLLama](https://github.com/zjhellofss/KuiperLLama) - Base LLM inference framework
+- **KuiperInfer**: [https://github.com/zjhellofss/KuiperInfer](https://github.com/zjhellofss/KuiperInfer) - Original CNN inference framework
+- **FlashAttention**: [https://github.com/Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention) - Official FlashAttention implementation
+- **NCCL**: [https://github.com/NVIDIA/nccl](https://github.com/NVIDIA/nccl) - NVIDIA Collective Communications Library
+
+## License
+
+This project follows the same license terms as the original KuiperLLama project. Please refer to the original repository for license details.
