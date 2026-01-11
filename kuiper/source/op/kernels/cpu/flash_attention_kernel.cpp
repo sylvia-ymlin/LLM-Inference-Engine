@@ -26,10 +26,10 @@ void flash_attention_kernel(const tensor::Tensor& query, const tensor::Tensor& k
   
   if (device_type == base::DeviceType::kDeviceCUDA) {
 #ifdef KUIPER_USE_FLASH_ATTENTION
-    // Use FlashAttention CUDA kernel
-    LOG(INFO) << "Using FlashAttention CUDA kernel";
-    flash_attention_kernel_cu(query, key, value, output, head_num, head_size, seq_len, pos,
-                             softmax_scale, is_causal, config);
+    // CUDA kernel has memory access issues, temporarily disable
+    LOG(WARNING) << "FlashAttention CUDA kernel has memory access issues, using standard MHA";
+    get_mha_kernel(device_type)(pos, head_num, 0, seq_len, head_num * head_size, 1, head_size,
+                               output, query, score_tensor, key, value, device_type, config);
 #else
     LOG(WARNING) << "FlashAttention CUDA support not compiled. Falling back to standard MHA";
     // Fallback to standard attention
