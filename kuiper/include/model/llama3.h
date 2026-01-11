@@ -6,6 +6,7 @@
 #include "op/embedding.h"
 #include "op/rope.h"
 #include "op/swiglu.h"
+#include "op/flash_attention.h"
 namespace model {
 
 struct LLama2Layers {
@@ -13,6 +14,7 @@ struct LLama2Layers {
   std::shared_ptr<op::Layer> rope_layer_;
   std::shared_ptr<op::Layer> swiglu_layer_;
   std::shared_ptr<op::Layer> mha_layer_;
+  std::shared_ptr<op::Layer> flash_attention_layer_;  // FlashAttention alternative
 
   std::vector<std::shared_ptr<op::Layer>> wq_layers_;
   std::vector<std::shared_ptr<op::Layer>> wk_layers_;

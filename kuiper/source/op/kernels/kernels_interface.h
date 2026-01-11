@@ -46,6 +46,12 @@ typedef void (*ScaleSumKernel)(const tensor::Tensor& value, const tensor::Tensor
                                const tensor::Tensor& output, int t, int size, int stride,
                                void* stream);
 
+typedef void (*FlashAttentionKernel)(const tensor::Tensor& query, const tensor::Tensor& key,
+                                     const tensor::Tensor& value, const tensor::Tensor& output,
+                                     int32_t head_num, int32_t head_size, int32_t seq_len, int32_t pos,
+                                     float softmax_scale, bool is_causal,
+                                     base::DeviceType device_type, CudaConfig* config);
+
 void softmax_inplace_cpu(const float* input_ptr, size_t size);
 
 AddKernel get_add_kernel(base::DeviceType device_type);
@@ -71,5 +77,7 @@ SwigluKernel get_swiglu_kernel(base::DeviceType device_type, void* stream = null
 ScaleSumKernel get_scale_sum_kernel(base::DeviceType device_type);
 
 RMSNormKernelDim get_rmsnorm_dim_kernel(base::DeviceType device_type);
+
+FlashAttentionKernel get_flash_attention_kernel(base::DeviceType device_type);
 }  // namespace kernel
 #endif  // KERNELS_INTERFACE_H

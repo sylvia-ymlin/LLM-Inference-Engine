@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Set the CUDA compiler path or name
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
-
-project(llama_infer CXX CUDA)
-include(cmake/cuda.cmake)
+# Set the CUDA compiler path or name (only if CUDA is available)
+if(EXISTS "/usr/local/cuda/bin/nvcc")
+  set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+  project(llama_infer CXX CUDA)
+  include(cmake/cuda.cmake)
+else()
+  project(llama_infer CXX)
+  message(WARNING "CUDA not found, building CPU-only version")
+endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -16,6 +20,11 @@ set(CMAKE_CUDA_STANDARD 14)
 option(USE_NCCL "Enable NCCL for distributed inference" ON)
 if(USE_NCCL)
   add_definitions(-DKUIPER_USE_NCCL)
+endif()
+
+option(USE_FLASH_ATTENTION "Enable FlashAttention-2 for optimized attention" ON)
+if(USE_FLASH_ATTENTION)
+  add_definitions(-DKUIPER_USE_FLASH_ATTENTION)
 endif()
 
 option(LLAMA3_SUPPORT OFF)
@@ -119,6 +128,13 @@ target_include_directories(llama PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES
 if(USE_CPM)
   # Add sentencepiece include directory
   target_include_directories(llama PUBLIC ${sentencepiece_SOURCE_DIR}/src)
+endif()
+
+# FlashAttention-2 integration (Simplified version)
+if(USE_FLASH_ATTENTION AND USE_CPM)
+  message(STATUS "FlashAttention support enabled (simplified implementation)")
+  # Note: This uses a simplified FlashAttention-inspired kernel
+  # For full FlashAttention-2, additional dependencies would be needed
 endif()
 
 set_target_properties(llama PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

@@ -4,6 +4,7 @@
 #include <op/matmul.h>
 #include <op/mha.h>
 #include <op/rmsnorm.h>
+#include <op/flash_attention.h>
 #include <sentencepiece_processor.h>
 #include <utility>
 #include "../op/kernels/cpu/rope_kernel.h"
@@ -40,6 +41,11 @@ void LLama2Layers::to_cuda(std::shared_ptr<kernel::CudaConfig> config) {
   if (mha_layer_) {
     mha_layer_->set_cuda_config(config);
     mha_layer_->to_cuda();
+  }
+
+  if (flash_attention_layer_) {
+    flash_attention_layer_->set_cuda_config(config);
+    flash_attention_layer_->to_cuda();
   }
 
   for (auto& weight_layer : wq_layers_) {
@@ -172,9 +178,18 @@ void LLama2Model::create_nonparam_layers() {
   llama_layers_->rope_layer_ = std::make_shared<op::RoPELayer>(
       device_type_, config_->dim_, config_->kv_dim_, config_->head_size_);
 
+  // Create standard MHA layer
   llama_layers_->mha_layer_ = std::make_shared<op::MultiHeadAttention>(
       device_type_, 0, config_->kv_mul_, config_->kv_dim_, config_->seq_len_, config_->head_num_,
       config_->head_size_);
+
+#ifdef KUIPER_USE_FLASH_ATTENTION
+  // Create FlashAttention layer as alternative
+  llama_layers_->flash_attention_layer_ = std::make_shared<op::FlashAttention>(
+      device_type_, 0, config_->kv_mul_, config_->kv_dim_, config_->seq_len_, config_->head_num_,
+      config_->head_size_);
+  LOG(INFO) << "FlashAttention layer created successfully";
+#endif
 
   llama_layers_->add_layer_ = std::make_shared<op::VecAddLayer>(device_type_);
 
@@ -672,28 +687,51 @@ base::Status LLama2Model::predict(const tensor::Tensor& input, const tensor::Ten
 
 void LLama2Model::attention_mha(int32_t layer_idx, const tensor::Tensor& pos_tensor) const {
   CHECK(llama_layers_ != nullptr);
-  // mha
-  tensor::Tensor key_cache = get_buffer(ModelBufferType::kKeyCache);
-  // VAL = [val1,val2,...val t]
-  // output @ VAL = 最终的结果
-  tensor::Tensor val_cache = get_buffer(ModelBufferType::kValueCache);
+  
+#ifdef KUIPER_USE_FLASH_ATTENTION
+  // Use FlashAttention if available and enabled
+  if (llama_layers_->flash_attention_layer_) {
+    LOG(INFO) << "Using FlashAttention for layer " << layer_idx;
+    
+    // Get Q, K, V tensors
+    tensor::Tensor query = this->get_buffer(ModelBufferType::kQuery);
+    tensor::Tensor key_cache = get_buffer(ModelBufferType::kKeyCache);
+    tensor::Tensor val_cache = get_buffer(ModelBufferType::kValueCache);
+    tensor::Tensor mha_output = get_buffer(ModelBufferType::kOutputMHA);
+    
+    // Set position and layer index
+    int pos = pos_tensor.index<int32_t>(0);
+    std::dynamic_pointer_cast<op::FlashAttention>(llama_layers_->flash_attention_layer_)->set_pos(pos);
+    std::dynamic_pointer_cast<op::FlashAttention>(llama_layers_->flash_attention_layer_)->set_layer_idx(layer_idx);
+    
+    // Forward pass with FlashAttention (Q, K, V format)
+    STATUS_CHECK(llama_layers_->flash_attention_layer_->forward(query, key_cache, val_cache, mha_output));
+  } else
+#endif
+  {
+    // Fallback to standard MHA
+    LOG(INFO) << "Using standard MHA for layer " << layer_idx;
+    
+    // Standard MHA implementation
+    tensor::Tensor key_cache = get_buffer(ModelBufferType::kKeyCache);
+    tensor::Tensor val_cache = get_buffer(ModelBufferType::kValueCache);
+    tensor::Tensor mha_output = get_buffer(ModelBufferType::kOutputMHA);
+    tensor::Tensor score_storage = get_buffer(ModelBufferType::kScoreStorage);
+    tensor::Tensor query = this->get_buffer(ModelBufferType::kQuery);
 
-  tensor::Tensor mha_output = get_buffer(ModelBufferType::kOutputMHA);
-  tensor::Tensor score_storage = get_buffer(ModelBufferType::kScoreStorage);
-  tensor::Tensor query = this->get_buffer(ModelBufferType::kQuery);
+    const auto& mha_layer = llama_layers_->mha_layer_;
+    CHECK_NE(mha_layer, nullptr) << "The multi head attention layer is null pointer.";
+    int pos = pos_tensor.index<int32_t>(0);
+    std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_pos(pos);
+    std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_layer_idx(layer_idx);
+    STATUS_CHECK(mha_layer->forward(query, score_storage, key_cache, val_cache, mha_output));
+  }
 
-  const auto& mha_layer = llama_layers_->mha_layer_;
-  CHECK_NE(mha_layer, nullptr) << "The multi head attention layer is null pointer.";
-  int pos = pos_tensor.index<int32_t>(0);
-  std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_pos(pos);
-  std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_layer_idx(layer_idx);
-  STATUS_CHECK(mha_layer->forward(query, score_storage, key_cache, val_cache, mha_output));
-
-  // wo @ attention output
+  // wo @ attention output (common for both paths)
   tensor::Tensor attn_output = get_buffer(ModelBufferType::kAttnOutput);
   const auto& wo_layer = llama_layers_->wo_layers_.at(layer_idx);
   CHECK_NE(wo_layer, nullptr) << "The weight output layer is null pointer.";
-  STATUS_CHECK(wo_layer->forward(mha_output, attn_output));
+  STATUS_CHECK(wo_layer->forward(get_buffer(ModelBufferType::kOutputMHA), attn_output));
 }
 
 void LLama2Model::feed_forward(int32_t layer_idx, const tensor::Tensor& input) const {

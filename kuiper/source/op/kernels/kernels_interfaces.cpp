@@ -9,6 +9,7 @@
 #include "cpu/scale_sum_kernel.h"
 #include "cpu/softmax_kernel.h"
 #include "cpu/swiglu_kernel.h"
+#include "cpu/flash_attention_kernel.h"
 #include "cuda/add_kernel.cuh"
 #include "cuda/emb_kernel.cuh"
 #include "cuda/matmul_kernel.cuh"
@@ -16,6 +17,7 @@
 #include "cuda/rmsnorm_kernel.cuh"
 #include "cuda/rope_kernel.cuh"
 #include "cuda/swiglu_kernel.cuh"
+#include "cuda/flash_attention_kernel.cuh"
 #include "kernels_interface.h"
 namespace kernel {
 AddKernel get_add_kernel(base::DeviceType device_type) {
@@ -136,6 +138,17 @@ ScaleSumKernel get_scale_sum_kernel(base::DeviceType device_type) {
     return scale_sum_kernel_cpu;
   } else {
     LOG(FATAL) << "Unknown device type for get a scale and reduce kernel.";
+    return nullptr;
+  }
+}
+
+FlashAttentionKernel get_flash_attention_kernel(base::DeviceType device_type) {
+  if (device_type == base::DeviceType::kDeviceCPU) {
+    return flash_attention_kernel;
+  } else if (device_type == base::DeviceType::kDeviceCUDA) {
+    return flash_attention_kernel;  // Same function handles both CPU and CUDA dispatch
+  } else {
+    LOG(FATAL) << "Unknown device type for get a flash attention kernel.";
     return nullptr;
   }
 }
