@@ -95,9 +95,7 @@ if(USE_CPM)
         VERSION 3.11.3
     )
   endif()
-endif()
 
-# ---------------------------------
 else()
   # Fallback to system packages if CPM is disabled
   find_package(GTest REQUIRED)
