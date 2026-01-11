@@ -4,6 +4,15 @@
 #include "base/alloc.h"
 #include <cuda_runtime_api.h>
 
+/*
+Dispatch wrapper for FlashAttention:
+- CUDA path (when KUIPER_USE_FLASH_ATTENTION is defined) attempts the
+  flash_attention_kernel_cu, logs, and falls back to standard MHA on error
+- CPU path falls back directly to standard MHA (reference implementation)
+- Allocates a temporary score tensor required by the MHA fallback
+- Propagates softmax_scale and is_causal from the op layer
+*/
+
 namespace kernel {
 
 void flash_attention_kernel(const tensor::Tensor& query, const tensor::Tensor& key,

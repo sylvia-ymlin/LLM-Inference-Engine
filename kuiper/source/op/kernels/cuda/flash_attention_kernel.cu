@@ -3,6 +3,34 @@
 #include <tensor/tensor.h>
 #include <glog/logging.h>
 
+/*
+FlashAttention (simplified) forward kernel overview:
+- IO-aware tiled algorithm: processes Q, K, V in BLOCK_SIZE tiles
+- Shared memory layout:
+  s_q  [BLOCK_SIZE, head_dim]
+  s_k  [BLOCK_SIZE, head_dim]
+  s_v  [BLOCK_SIZE, head_dim]
+  s_qk [BLOCK_SIZE, BLOCK_SIZE]
+  s_out[BLOCK_SIZE, head_dim] (accumulated output per query row)
+- Online softmax per row with running max/sum and correction factor
+- Causal mask prevents attending to future positions
+
+Fix in this revision:
+- Move output accumulation to shared memory (s_out) to avoid reading
+  uninitialized per-thread buffers during writeback
+- Restrict writeback to tid < q_size and perform row-wise writes
+- Expand shared memory size to include s_out; removes head_dim<=64 assumption
+
+Known limitations:
+- BLOCK_SIZE fixed; head_dim limited by shared memory capacity
+- Single-batch assumption in launcher (batch_size = 1)
+- No Tensor Core path or v2/v3 parallel work partitioning
+
+Validation:
+- Build with USE_FLASH_ATTENTION enabled and run TestFlashAttention.*
+- Compare numerical outputs against standard MHA for correctness
+*/
+
 namespace kernel {
 
 // Simplified FlashAttention CUDA kernel based on minimal reference implementation
@@ -30,10 +58,11 @@ __global__ void flash_attention_fwd_kernel(
     
     // Shared memory allocation
     extern __shared__ float smem[];
-    float* s_q = smem;                                    // [BLOCK_SIZE, head_dim]
-    float* s_k = s_q + BLOCK_SIZE * head_dim;            // [BLOCK_SIZE, head_dim]  
-    float* s_v = s_k + BLOCK_SIZE * head_dim;            // [BLOCK_SIZE, head_dim]
-    float* s_qk = s_v + BLOCK_SIZE * head_dim;           // [BLOCK_SIZE, BLOCK_SIZE]
+    float* s_q = smem;                                     // [BLOCK_SIZE, head_dim]
+    float* s_k = s_q + BLOCK_SIZE * head_dim;             // [BLOCK_SIZE, head_dim]  
+    float* s_v = s_k + BLOCK_SIZE * head_dim;             // [BLOCK_SIZE, head_dim]
+    float* s_qk = s_v + BLOCK_SIZE * head_dim;            // [BLOCK_SIZE, BLOCK_SIZE]
+    float* s_out = s_qk + BLOCK_SIZE * BLOCK_SIZE;        // [BLOCK_SIZE, head_dim]
     
     const int tid = threadIdx.x;
     const int num_blocks = (seq_len + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -57,13 +86,12 @@ __global__ void flash_attention_fwd_kernel(
         // Initialize output accumulator and softmax statistics
         float row_max[BLOCK_SIZE];
         float row_sum[BLOCK_SIZE];
-        float output[BLOCK_SIZE * 64]; // Assume head_dim <= 64
         
         for (int i = 0; i < q_size; i++) {
             row_max[i] = -INFINITY;
             row_sum[i] = 0.0f;
             for (int j = 0; j < head_dim; j++) {
-                output[i * head_dim + j] = 0.0f;
+                s_out[i * head_dim + j] = 0.0f;
             }
         }
         
@@ -140,8 +168,8 @@ __global__ void flash_attention_fwd_kernel(
                     for (int kv_row = 0; kv_row < kv_size; kv_row++) {
                         new_output += s_qk[q_row * BLOCK_SIZE + kv_row] * s_v[kv_row * head_dim + d];
                     }
-                    output[q_row * head_dim + d] = old_weight * output[q_row * head_dim + d] + 
-                                                   new_weight * new_output;
+                    s_out[q_row * head_dim + d] = old_weight * s_out[q_row * head_dim + d] + 
+                                                  new_weight * new_output;
                 }
                 
                 // Update statistics
@@ -152,13 +180,14 @@ __global__ void flash_attention_fwd_kernel(
         }
         
         // Write final output to global memory
-        for (int i = tid; i < q_size * head_dim; i += blockDim.x) {
-            const int q_row = i / head_dim;
-            const int q_col = i % head_dim;
-            const int o_idx = batch_idx * seq_len * num_heads * head_dim + 
-                             (q_start + q_row) * num_heads * head_dim + 
-                             head_idx * head_dim + q_col;
-            O[o_idx] = output[q_row * head_dim + q_col];
+        if (tid < q_size) {
+            const int q_row = tid;
+            for (int q_col = 0; q_col < head_dim; q_col++) {
+                const int o_idx = batch_idx * seq_len * num_heads * head_dim + 
+                                  (q_start + q_row) * num_heads * head_dim + 
+                                  head_idx * head_dim + q_col;
+                O[o_idx] = s_out[q_row * head_dim + q_col];
+            }
         }
         __syncthreads();
     }
@@ -205,8 +234,8 @@ void flash_attention_kernel_cu(const tensor::Tensor& query, const tensor::Tensor
     dim3 block(256);  // Number of threads per block
     dim3 grid(head_num, batch_size);  // One block per head
     
-    // Shared memory: Q, K, V blocks + QK matrix
-    size_t shared_mem_size = (3 * BLOCK_SIZE * head_size + BLOCK_SIZE * BLOCK_SIZE) * sizeof(float);
+    // Shared memory: Q, K, V blocks + QK matrix + OUT block
+    size_t shared_mem_size = (3 * BLOCK_SIZE * head_size + BLOCK_SIZE * BLOCK_SIZE + BLOCK_SIZE * head_size) * sizeof(float);
     
     // Check shared memory limits
     int device;

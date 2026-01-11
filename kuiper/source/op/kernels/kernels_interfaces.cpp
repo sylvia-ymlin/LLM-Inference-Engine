@@ -143,6 +143,11 @@ ScaleSumKernel get_scale_sum_kernel(base::DeviceType device_type) {
 }
 
 FlashAttentionKernel get_flash_attention_kernel(base::DeviceType device_type) {
+  /*
+  Returns FlashAttention kernel entry:
+  - CPU: flash_attention_kernel (dispatch wrapper with MHA fallback)
+  - CUDA: same function; internally selects CUDA kernel or falls back
+  */
   if (device_type == base::DeviceType::kDeviceCPU) {
     return flash_attention_kernel;
   } else if (device_type == base::DeviceType::kDeviceCUDA) {

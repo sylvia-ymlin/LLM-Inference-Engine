@@ -3,6 +3,16 @@
 #include "kernels/kernels_interface.h"
 #include <cmath>
 
+/*
+FlashAttention layer contract:
+- Inputs: Q, K, V
+- Output: O with shape [batch, seq_len, num_heads, head_dim]
+- softmax_scale defaults to 1/sqrt(head_size) when not provided
+- forward() routes to kernel::get_flash_attention_kernel with device-specific config
+Notes:
+- CUDA execution requires a valid cuda_config_ (stream etc.)
+*/
+
 namespace op {
 
 FlashAttention::FlashAttention(base::DeviceType device_type, int32_t layer_index,
