@@ -10,6 +10,7 @@
 #include "../op/kernels/cpu/rope_kernel.h"
 #include "../op/kernels/cuda/rope_kernel.cuh"
 #include "base/tick.h"
+#include <chrono>
 namespace model {
 
 void LLama2Layers::to_cuda(std::shared_ptr<kernel::CudaConfig> config) {
@@ -705,7 +706,11 @@ void LLama2Model::attention_mha(int32_t layer_idx, const tensor::Tensor& pos_ten
     std::dynamic_pointer_cast<op::FlashAttention>(llama_layers_->flash_attention_layer_)->set_layer_idx(layer_idx);
     
     // Forward pass with FlashAttention (Q, K, V format)
+    auto t0 = std::chrono::steady_clock::now();
     STATUS_CHECK(llama_layers_->flash_attention_layer_->forward(query, key_cache, val_cache, mha_output));
+    auto t1 = std::chrono::steady_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    LOG(INFO) << "Layer " << layer_idx << " FlashAttention time " << ms << " ms";
   } else
 #endif
   {
@@ -724,7 +729,11 @@ void LLama2Model::attention_mha(int32_t layer_idx, const tensor::Tensor& pos_ten
     int pos = pos_tensor.index<int32_t>(0);
     std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_pos(pos);
     std::dynamic_pointer_cast<op::MultiHeadAttention>(mha_layer)->set_layer_idx(layer_idx);
+    auto t0 = std::chrono::steady_clock::now();
     STATUS_CHECK(mha_layer->forward(query, score_storage, key_cache, val_cache, mha_output));
+    auto t1 = std::chrono::steady_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    LOG(INFO) << "Layer " << layer_idx << " MHA time " << ms << " ms";
   }
 
   // wo @ attention output (common for both paths)
