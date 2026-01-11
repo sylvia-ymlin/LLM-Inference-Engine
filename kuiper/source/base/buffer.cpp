@@ -8,7 +8,7 @@ Buffer::Buffer(size_t byte_size, std::shared_ptr<DeviceAllocator> allocator, voi
       allocator_(allocator),
       ptr_(ptr),
       use_external_(use_external) {
-  if (!ptr_ && allocator_) {
+  if (!ptr_ && allocator_ && byte_size_ > 0) {
     device_type_ = allocator_->device_type();
     use_external_ = false;
     ptr_ = allocator_->allocate(byte_size);
@@ -37,7 +37,7 @@ size_t Buffer::byte_size() const {
 }
 
 bool Buffer::allocate() {
-  if (allocator_ && byte_size_ != 0) {
+  if (allocator_ && byte_size_ > 0) {
     use_external_ = false;
     ptr_ = allocator_->allocate(byte_size_);
     if (!ptr_) {
@@ -46,6 +46,11 @@ bool Buffer::allocate() {
       return true;
     }
   } else {
+    // For zero-byte allocations, consider it successful but don't allocate
+    if (byte_size_ == 0) {
+      ptr_ = nullptr;
+      return true;
+    }
     return false;
   }
 }
@@ -59,6 +64,10 @@ void Buffer::copy_from(const Buffer& buffer) const {
   CHECK(buffer.ptr_ != nullptr);
 
   size_t byte_size = byte_size_ < buffer.byte_size_ ? byte_size_ : buffer.byte_size_;
+  if (byte_size == 0) {
+    return; // Nothing to copy for zero-sized buffers
+  }
+  
   const DeviceType& buffer_device = buffer.device_type();
   const DeviceType& current_device = this->device_type();
   CHECK(buffer_device != DeviceType::kDeviceUnknown &&
@@ -88,6 +97,10 @@ void Buffer::copy_from(const Buffer* buffer) const {
   size_t dest_size = byte_size_;
   size_t src_size = buffer->byte_size_;
   size_t byte_size = src_size < dest_size ? src_size : dest_size;
+  
+  if (byte_size == 0) {
+    return; // Nothing to copy for zero-sized buffers
+  }
 
   const DeviceType& buffer_device = buffer->device_type();
   const DeviceType& current_device = this->device_type();

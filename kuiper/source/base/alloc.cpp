@@ -3,11 +3,11 @@
 namespace base {
 void DeviceAllocator::memcpy(const void* src_ptr, void* dest_ptr, size_t byte_size,
                              MemcpyKind memcpy_kind, void* stream, bool need_sync) const {
-  CHECK_NE(src_ptr, nullptr);
-  CHECK_NE(dest_ptr, nullptr);
   if (!byte_size) {
     return;
   }
+  CHECK_NE(src_ptr, nullptr);
+  CHECK_NE(dest_ptr, nullptr);
 
   cudaStream_t stream_ = nullptr;
   if (stream) {

@@ -180,8 +180,10 @@ bool Tensor::allocate(std::shared_ptr<base::DeviceAllocator> allocator, bool nee
 
   size_t byte_size = this->byte_size();
   if (!byte_size) {
-    LOG(ERROR) << "The byte_size parameter in the allocate function is equal to zero!";
-    return false;
+    LOG(WARNING) << "Tensor has zero byte size, creating empty tensor without allocation";
+    // For zero-sized tensors, create a buffer but don't allocate memory
+    buffer_ = std::make_shared<base::Buffer>(0, allocator, nullptr, false);
+    return true;
   }
 
   if (buffer_ && byte_size <= buffer_->byte_size()) {
@@ -263,7 +265,7 @@ std::vector<size_t> Tensor::strides() const {
 }
 
 bool Tensor::is_empty() const {
-  return size_ == 0 || buffer_ == nullptr || buffer_->ptr() == nullptr;
+  return size_ == 0 || buffer_ == nullptr || (size_ > 0 && buffer_->ptr() == nullptr);
 }
 
 void Tensor::init_buffer(std::shared_ptr<base::DeviceAllocator> alloc, base::DataType data_type,

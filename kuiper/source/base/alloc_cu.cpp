@@ -5,6 +5,12 @@ namespace base {
 CUDADeviceAllocator::CUDADeviceAllocator() : DeviceAllocator(DeviceType::kDeviceCUDA) {}
 
 void* CUDADeviceAllocator::allocate(size_t byte_size) const {
+  // Handle zero-byte allocation
+  if (byte_size == 0) {
+    LOG(WARNING) << "Attempting to allocate 0 bytes, returning nullptr";
+    return nullptr;
+  }
+  
   int id = -1;
   cudaError_t state = cudaGetDevice(&id);
   CHECK(state == cudaSuccess);
