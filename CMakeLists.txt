@@ -98,9 +98,35 @@ if(USE_CPM)
 endif()
 
 # ---------------------------------
-find_package(GTest REQUIRED)
-find_package(glog REQUIRED)
-find_package(Armadillo REQUIRED)
+# Use CPM to manage dependencies
+CPMAddPackage(
+  NAME googletest
+  GITHUB_REPOSITORY google/googletest
+  VERSION 1.14.0
+  OPTIONS
+    "INSTALL_GTEST OFF"
+    "gtest_force_shared_crt"
+)
+
+CPMAddPackage(
+  NAME glog
+  GITHUB_REPOSITORY google/glog
+  VERSION 0.6.0
+)
+
+CPMAddPackage(
+  NAME armadillo
+  URL https://sourceforge.net/projects/arma/files/armadillo-12.6.4.tar.xz
+  VERSION 12.6.4
+  DOWNLOAD_ONLY YES
+)
+
+if(armadillo_ADDED)
+  # Configure armadillo manually since it uses a custom build system
+  add_library(armadillo INTERFACE)
+  target_include_directories(armadillo INTERFACE ${armadillo_SOURCE_DIR}/include)
+  target_compile_definitions(armadillo INTERFACE ARMA_DONT_USE_WRAPPER)
+endif()
 
 aux_source_directory(kuiper/source/tensor/ DIR_TENSOR)
 aux_source_directory(kuiper/source/base/ DIR_BASE)
