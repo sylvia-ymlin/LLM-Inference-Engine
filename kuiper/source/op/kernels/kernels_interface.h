@@ -48,7 +48,8 @@ typedef void (*ScaleSumKernel)(const tensor::Tensor& value, const tensor::Tensor
 
 typedef void (*FlashAttentionKernel)(const tensor::Tensor& query, const tensor::Tensor& key,
                                      const tensor::Tensor& value, const tensor::Tensor& output,
-                                     int32_t head_num, int32_t head_size, int32_t seq_len, int32_t pos,
+                                     int32_t head_num, int32_t kv_head_num, int32_t head_size,
+                                     int32_t seq_len, int32_t pos, int32_t layer_idx,
                                      float softmax_scale, bool is_causal,
                                      base::DeviceType device_type, CudaConfig* config);
 

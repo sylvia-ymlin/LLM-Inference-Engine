@@ -10,7 +10,7 @@ void* CUDADeviceAllocator::allocate(size_t byte_size) const {
     LOG(WARNING) << "Attempting to allocate 0 bytes, returning nullptr";
     return nullptr;
   }
-  
+
   int id = -1;
   cudaError_t state = cudaGetDevice(&id);
   CHECK(state == cudaSuccess);
@@ -58,9 +58,10 @@ void* CUDADeviceAllocator::allocate(size_t byte_size) const {
   if (cudaSuccess != state) {
     char buf[256];
     snprintf(buf, 256,
-             "Error: CUDA error when allocating %lu MB memory! maybe there's no enough memory "
+             "Error: CUDA error when allocating %lu bytes (%.2f MB)! Error code: %d (%s). maybe "
+             "there's no enough memory "
              "left on  device.",
-             byte_size >> 20);
+             byte_size, (float)byte_size / (1024 * 1024), int(state), cudaGetErrorString(state));
     LOG(ERROR) << buf;
     return nullptr;
   }

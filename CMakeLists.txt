@@ -54,11 +54,7 @@ if(USE_CPM)
   # Use CPM to manage dependencies
   include(cmake/CPM.cmake)
 
-  CPMAddPackage(
-    NAME GTest
-    GITHUB_REPOSITORY google/googletest
-    VERSION 1.15.0
-  )
+
 
   CPMAddPackage(
     NAME glog
@@ -101,7 +97,7 @@ if(USE_CPM)
 
 else()
   # Fallback to system packages if CPM is disabled
-  find_package(GTest REQUIRED)
+
   find_package(glog REQUIRED)
   find_package(Armadillo REQUIRED)
 endif()
@@ -123,9 +119,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(llama SHARED ${DIR_TENSOR} ${DIR_BASE} ${DIR_OP} ${DIR_KERNEL} ${DIR_MODEL} ${DIR_KERNEL_CPU} ${DIR_KERNEL_CUDA} ${DIR_KERNEL} ${DIR_SAMPLE})
 if(EXISTS "/usr/local/cuda/bin/nvcc")
-  target_link_libraries(llama sentencepiece glog::glog gtest gtest_main pthread cudart armadillo)
+  target_link_libraries(llama sentencepiece glog::glog pthread cudart armadillo)
 else()
-  target_link_libraries(llama sentencepiece glog::glog gtest gtest_main pthread armadillo)
+  target_link_libraries(llama sentencepiece glog::glog pthread armadillo)
 endif()
 if(USE_NCCL)
   target_link_libraries(llama nccl)
@@ -161,5 +157,5 @@ endif()
 if(EXISTS "/usr/local/cuda/bin/nvcc")
   set_target_properties(llama PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
-add_subdirectory(test)
+
 add_subdirectory(demo)

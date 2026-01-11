@@ -7,10 +7,11 @@
 namespace kernel {
 
 void flash_attention_kernel_cu(const tensor::Tensor& query, const tensor::Tensor& key,
-                              const tensor::Tensor& value, const tensor::Tensor& output,
-                              int32_t head_num, int32_t head_size, int32_t seq_len, int32_t pos,
-                              float softmax_scale, bool is_causal, CudaConfig* config);
+                               const tensor::Tensor& value, const tensor::Tensor& output,
+                               int32_t head_num, int32_t kv_head_num, int32_t head_size,
+                               int32_t seq_len, int32_t pos, int32_t layer_idx, float softmax_scale,
+                               bool is_causal, CudaConfig* config);
 
-} // namespace kernel
+}  // namespace kernel
 
-#endif // KUIPER_FLASH_ATTENTION_KERNEL_CUH
+#endif  // KUIPER_FLASH_ATTENTION_KERNEL_CUH
